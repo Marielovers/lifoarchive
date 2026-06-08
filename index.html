@@ -89,7 +89,7 @@
                             class="w-full md:w-auto bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg text-sm px-4 py-2.5 text-center flex items-center justify-center gap-2 transition shadow-sm whitespace-nowrap">
                         <i class="fa-solid fa-images"></i> <span id="viewBtnText">갤러리 보기</span>
                     </button>
-                    <button id=id="lule34Btn" onclick="window.location.href='lule34.html'" 
+                    <button id="lule34Btn" onclick="window.location.href='lule34.html'" 
         class="w-50 md:w-50 bg-black hover:bg-gray-900 text-red-500 font-bold border border-red-800 rounded-lg text-sm px-4 py-2.5 text-center flex items-center justify-center gap-2 transition shadow-sm whitespace-nowrap">
     <span id="viewBtnText">Lule34</span>
 </button>
@@ -427,7 +427,7 @@
                             </div>`;
                     });
 
-                    // [수정됨] prevBtn, nextBtn 에 고유 ID를 부여하고, 초기 로딩 시 첫 이미지이므로 prevBtn에 hidden 추가
+                    // prevBtn, nextBtn 에 고유 ID를 부여하고, 초기 로딩 시 첫 이미지이므로 prevBtn에 hidden 추가
                     imageMarkup = `
                         <div class="relative overflow-hidden group rounded-lg mt-3 border border-gray-100 bg-black/5">
                             <div id="carousel-${post.id}" class="flex transition-transform duration-300 ease-out">
@@ -500,7 +500,7 @@
             });
         }
 
-        // [수정됨] 양쪽 버튼의 숨김/표시 상태를 현재 인덱스(idx)에 맞게 갱신하는 로직 추가
+        // 양쪽 버튼의 숨김/표시 상태를 현재 인덱스(idx)에 맞게 갱신하는 로직 추가
         window.moveCarousel = function(postId, direction, total) {
             const container = document.getElementById(`carousel-${postId}`);
             const card = container.closest('[data-carousel-index]');
@@ -565,13 +565,13 @@
         }
 
         function closeLightbox() {
-    document.getElementById("lightboxModal").classList.add("hidden");
-    document.body.classList.remove("overflow-hidden");
+            document.getElementById("lightboxModal").classList.add("hidden");
+            document.body.classList.remove("overflow-hidden");
 
-    // 만약 브라우저 기록에 모달 상태가 남아있다면, 
-    // 뒤로 가기를 실행하지 않고 현재 상태를 유지하며 닫기만 합니다.
-    // 이렇게 하면 페이지 이동 없이 모달만 정상적으로 닫힙니다.
-}
+            // 만약 브라우저 기록에 모달 상태가 남아있다면, 
+            // 뒤로 가기를 실행하지 않고 현재 상태를 유지하며 닫기만 합니다.
+            // 이렇게 하면 페이지 이동 없이 모달만 정상적으로 닫힙니다.
+        }
 
         function updateModalImage() {
             const track = document.getElementById("modalCarouselTrack");
@@ -586,6 +586,42 @@
 
         document.getElementById("modalPrevBtn").onclick = (e) => { e.stopPropagation(); if(currentModalIdx > 0) { currentModalIdx--; updateModalImage(); } };
         document.getElementById("modalNextBtn").onclick = (e) => { e.stopPropagation(); if(currentModalIdx < currentModalImages.length - 1) { currentModalIdx++; updateModalImage(); } };
+
+        // --- 스와이프(터치) 이벤트 추가 ---
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const swipeThreshold = 50; // 스와이프로 인식할 최소 픽셀 거리
+
+        const lightboxModalElement = document.getElementById("lightboxModal");
+
+        lightboxModalElement.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        lightboxModalElement.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleLightboxSwipe();
+        }, { passive: true });
+
+        function handleLightboxSwipe() {
+            if (!currentModalImages || currentModalImages.length <= 1) return;
+
+            const swipeDistance = touchEndX - touchStartX;
+
+            if (swipeDistance < -swipeThreshold) {
+                if (currentModalIdx < currentModalImages.length - 1) {
+                    currentModalIdx++;
+                    updateModalImage();
+                }
+            } 
+            else if (swipeDistance > swipeThreshold) {
+                if (currentModalIdx > 0) {
+                    currentModalIdx--;
+                    updateModalImage();
+                }
+            }
+        }
+        // ----------------------------------
 
         async function downloadLightboxImage(event) {
             event.stopPropagation();
@@ -632,35 +668,35 @@
                 return `<a href="${url}" target="_blank" class="text-blue-500 hover:underline break-all">${url}</a>`;
             });
         }
-window.addEventListener('popstate', (event) => {
-    const modal = document.getElementById("lightboxModal");
-    if (!modal.classList.contains("hidden")) {
-        modal.classList.add("hidden");
-        document.body.classList.remove("overflow-hidden");
-    }
-});
-let lastScrollTop = 0;
-const header = document.querySelector('header');
+        window.addEventListener('popstate', (event) => {
+            const modal = document.getElementById("lightboxModal");
+            if (!modal.classList.contains("hidden")) {
+                modal.classList.add("hidden");
+                document.body.classList.remove("overflow-hidden");
+            }
+        });
+        
+        let lastScrollTop = 0;
+        const header = document.querySelector('header');
+        // 헤더의 높이를 미리 계산해둡니다 (헤더가 사라지는 범위)
+        const headerHeight = header.offsetHeight;
+        let currentOffset = 0; // 현재 헤더의 위치 (0 ~ -headerHeight)
 
-window.addEventListener('scroll', () => {
-    let currentScroll = window.pageYOffset || document.documentElement.scrollTop;
-    
-    // 최소 50px 이상 스크롤 했을 때만 반응하도록 설정 (헤더가 바로 사라지는 것 방지)
-    if (currentScroll > 50) {
-        if (currentScroll > lastScrollTop) {
-            // 아래로 스크롤 시 헤더 숨기기
-            header.classList.add('-translate-y-full');
-        } else {
-            // 위로 스크롤 시 헤더 보이기
-            header.classList.remove('-translate-y-full');
-        }
-    } else {
-        // 최상단 근처일 때는 헤더가 항상 보이도록 설정
-        header.classList.remove('-translate-y-full');
-    }
-    
-    lastScrollTop = currentScroll <= 0 ? 0 : currentScroll; // 음수 스크롤 방지
-}, false);
+        window.addEventListener('scroll', () => {
+            let currentScroll = window.scrollY || document.documentElement.scrollTop;
+            
+            // 스크롤 방향 계산 (위로 이동하면 +값, 아래로 이동하면 -값)
+            let delta = lastScrollTop - currentScroll;
+            
+            // 스크롤 이동량만큼 offset을 누적 (0보다 크면 0으로, -height보다 작으면 -height로 고정)
+            currentOffset = Math.min(0, Math.max(-headerHeight, currentOffset + delta));
+            
+            // transform 속성을 실시간으로 적용
+            header.style.transform = `translateY(${currentOffset}px)`;
+            header.style.transition = 'none'; // 부드러운 추종을 위해 애니메이션 제거
+            
+            lastScrollTop = currentScroll;
+        }, false);
     </script>
 </body>
 </html>

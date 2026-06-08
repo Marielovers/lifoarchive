@@ -94,8 +94,8 @@
         </header>
 
         <main class="max-w-4xl mx-auto px-4 mt-6">
-            <div id="feedView" class="space-y-4 max-w-xl mx-auto"></div>
-            <div id="galleryView" class="grid grid-cols-2 md:grid-cols-4 gap-4 hidden"></div>
+            <div id="feedView" class="space-y-4 max-w-xl mx-auto hidden"></div>
+            <div id="galleryView" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
 
             <div id="loadingTrigger" class="text-center py-8 text-gray-500 text-sm">
                 <i class="fa-solid fa-circle-notch animate-spin text-xl text-blue-500"></i>
@@ -105,6 +105,7 @@
     </div>
 
     <div id="lightboxModal" class="fixed inset-0 bg-black/95 z-50 hidden flex items-center justify-center p-4" onclick="closeLightbox()">
+        
         <div class="absolute top-4 right-4 flex items-center gap-5 z-50">
             <a id="lightboxPostLink" href="#" target="_blank" onclick="event.stopPropagation()" class="text-white text-2xl hover:text-blue-400 transition" title="원본 게시글 보기">
                 <i class="fa-solid fa-arrow-up-right-from-square"></i>
@@ -119,8 +120,13 @@
 
         <div class="relative max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center" onclick="event.stopPropagation()">
             <div id="modalCarouselTrack" class="w-full h-full flex items-center justify-center"></div>
-            <button id="modalPrevBtn" class="absolute left-4 bg-black/50 text-white p-3 rounded-full hover:bg-black/80"><i class="fa-solid fa-chevron-left"></i></button>
-            <button id="modalNextBtn" class="absolute right-4 bg-black/50 text-white p-3 rounded-full hover:bg-black/80"><i class="fa-solid fa-chevron-right"></i></button>
+            <button id="modalPrevBtn" onclick="prevLightboxImage(event)" class="absolute left-4 bg-black/50 text-white p-3 rounded-full hover:bg-black/80 transition"><i class="fa-solid fa-chevron-left"></i></button>
+            <button id="modalNextBtn" onclick="nextLightboxImage(event)" class="absolute right-4 bg-black/50 text-white p-3 rounded-full hover:bg-black/80 transition"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+
+        <div class="absolute bottom-6 left-0 right-0 flex justify-center z-50 pointer-events-none">
+            <div id="lightboxPostInfo" class="bg-black/60 text-gray-200 text-sm px-4 py-1.5 rounded-full backdrop-blur-md border border-gray-800 shadow-lg">
+                </div>
         </div>
     </div>
 
@@ -184,19 +190,6 @@
             Papa.parse(csvText, { header: true, skipEmptyLines: true, complete: function(results) { initializeData(results.data); } });
         }
 
-function syncViewMode() {
-    const feed = document.getElementById("feedView");
-    const gallery = document.getElementById("galleryView");
-
-    if (isGalleryMode) {
-        feed.classList.add("hidden");
-        gallery.classList.remove("hidden");
-    } else {
-        feed.classList.remove("hidden");
-        gallery.classList.add("hidden");
-    }
-}
-
         function initializeData(parsedData) {
             allPosts = parsedData.map((row, idx) => {
                 let profImg = row['Profile Image'] ? row['Profile Image'].trim() : '';
@@ -226,7 +219,6 @@ function syncViewMode() {
             const main = document.getElementById("mainContent");
             main.classList.remove("opacity-0", "pointer-events-none");
             main.classList.add("opacity-100");
-syncViewMode(); // 이 줄을 추가하세요!
             triggerSearch();
             initInfiniteScroll();
         }
@@ -304,9 +296,8 @@ syncViewMode(); // 이 줄을 추가하세요!
                 return matchesSearch && matchesDate;
             });
 
-            if (isGalleryMode) {
-                filteredPosts = filteredPosts.filter(post => post.Images.trim() !== "");
-            }
+            // 사진이 없는 게시물은 완전히 제외시킴
+            filteredPosts = filteredPosts.filter(post => post.Images.trim() !== "");
 
             filteredPosts.sort((a, b) => {
                 const dateA = a.Date_Absolute === '날짜 불명' ? '1900-01-01' : a.Date_Absolute;
@@ -374,7 +365,7 @@ syncViewMode(); // 이 줄을 추가하세요!
             btn.disabled = true;
 
             for (let i = 0; i < images.length; i++) {
-                const baseFilename = `${dateStr}_${safeAuthor}_${postNum}_${i+1}`;
+                const baseFilename = `${dateStr}_${safeAuthor}_${postNum}`;
                 await triggerDirectDownload(images[i], baseFilename);
                 if (images.length > 1) await new Promise(r => setTimeout(r, 300));
             }
@@ -407,7 +398,7 @@ syncViewMode(); // 이 줄을 추가하세요!
 
             trigger.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin text-xl text-blue-500"></i><p class="mt-2">게시글 로딩 중...</p>`;
 
-            if (isGalleryMode) { renderGalleryLayout(batch); } else { renderFeedLayout(batch); }
+            renderGalleryLayout(batch);
 
             page++;
             isLoading = false;
@@ -417,74 +408,17 @@ syncViewMode(); // 이 줄을 추가하세요!
             }
         }
 
-        function renderFeedLayout(posts) {
-            const container = document.getElementById("feedView");
-            posts.forEach(post => {
-                const images = post.Images ? post.Images.split('\n') : [];
-                let imageMarkup = '';
-
-                if (images.length > 0) {
-                    let items = '';
-                    images.forEach((url, imgIdx) => {
-                        items += `
-                            <div class="w-full flex-shrink-0 flex justify-center bg-black/20 overflow-hidden">
-                                <img src="${url}" onerror="this.onerror=null; this.src='https://via.placeholder.com/500?text=Image+Loading+Failed';" 
-                                     onclick="openFeedLightbox('${post.id}', ${imgIdx})"
-                                     class="w-full h-auto max-h-[75vh] object-contain select-none cursor-pointer hover:opacity-95 transition" 
-                                     loading="lazy" alt="본문">
-                            </div>`;
-                    });
-
-                    imageMarkup = `
-                        <div class="relative overflow-hidden group rounded-lg mt-3 border border-gray-700 bg-gray-900/50">
-                            <div id="carousel-${post.id}" class="flex transition-transform duration-300 ease-out">
-                                ${items}
-                            </div>
-                            ${images.length > 1 ? `
-                                <button id="prevBtn-${post.id}" onclick="moveCarousel('${post.id}', -1, ${images.length})" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center transition opacity-0 group-hover:opacity-100 z-10 hidden"><i class="fa-solid fa-chevron-left text-xs"></i></button>
-                                <button id="nextBtn-${post.id}" onclick="moveCarousel('${post.id}', 1, ${images.length})" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center transition opacity-0 group-hover:opacity-100 z-10"><i class="fa-solid fa-chevron-right text-xs"></i></button>
-                                <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full z-10"><span id="indicator-${post.id}">1</span>/${images.length}</div>
-                            ` : ''}
-                        </div>`;
-                }
-
-                const card = document.createElement("div");
-                card.className = "bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-sm hover:shadow transition";
-                card.dataset.carouselIndex = 0;
-                card.innerHTML = `
-                    <div class="flex items-start space-x-3">
-                        <img src="${post.Profile_Image || defaultProfile}" onerror="this.onerror=null; this.src='${defaultProfile}';" class="w-10 h-10 rounded-full object-cover border border-gray-700 flex-shrink-0" alt="프로필">
-                        <div class="flex-1 min-w-0">
-                            <p class="text-sm font-bold text-gray-100 truncate">${post.Author}</p>
-                            <p class="text-xs text-gray-400 mt-0.5" title="${post.Date_Original}">${post.Date_Absolute}</p>
-                        </div>
-                        <a href="${post.Post_Link}" target="_blank" class="text-gray-500 hover:text-blue-400 text-xs flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> 원본</a>
-                    </div>
-                    <div class="mt-3 text-[15px] leading-relaxed text-gray-300 whitespace-pre-wrap break-words">${linkify(escapeHtml(post.Text))}</div>
-                    ${imageMarkup}
-                    <div class="flex items-center gap-6 mt-4 text-xs font-medium text-gray-500 border-t border-gray-800 pt-3">
-                        <span class="flex items-center gap-1.5"><i class="fa-regular fa-heart text-sm"></i> ${post.Likes}</span>
-                        <span class="flex items-center gap-1.5"><i class="fa-regular fa-comment text-sm"></i> ${post.Comments}</span>
-                    </div>`;
-                container.appendChild(card);
-            });
-        }
-
         function renderGalleryLayout(posts) {
             const container = document.getElementById("galleryView");
             posts.forEach(post => {
                 const images = post.Images ? post.Images.split('\n') : [];
                 if (images.length === 0) return;
 
-                const safeAuthor = post.Author.replace(/[^a-zA-Z0-9가-힣]/g, '_').substring(0, 10);
-                const dateStr = (post.Date_Absolute || '000000').substring(0,10).replace(/-/g, '');
-                const postNum = post.id.replace(/\D/g, '');
-                const baseFilename = `${dateStr}_${safeAuthor}_${postNum}`;
-
                 const card = document.createElement("div");
                 card.className = "aspect-square bg-gray-800 rounded-xl overflow-hidden cursor-pointer relative group border border-gray-700 shadow-sm transition transform hover:scale-[1.02]";
                 
-                card.onclick = () => openLightbox(images, baseFilename, post.Post_Link, 0);
+                // 클릭 시 해당 게시물의 고유 ID만 전달 (1게시물 1사진 구조)
+                card.onclick = () => openLightboxByPostId(post.id);
                 card.innerHTML = `
                     <img src="${images[0]}" onerror="this.onerror=null; this.src='${fallbackImg}';" class="w-full h-full object-cover" loading="lazy" alt="썸네일">
                     
@@ -492,7 +426,7 @@ syncViewMode(); // 이 줄을 추가하세요!
                         <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
                     </a>
 
-                    <button onclick="downloadGalleryPostImages(event, '${post.id}')" class="absolute top-2 right-2 bg-black/60 hover:bg-green-600 text-white w-8 h-8 rounded-full flex items-center justify-center transition opacity-0 group-hover:opacity-100 z-10" title="이 게시글의 사진 모두 다운로드">
+                    <button onclick="downloadGalleryPostImages(event, '${post.id}')" class="absolute top-2 right-2 bg-black/60 hover:bg-green-600 text-white w-8 h-8 rounded-full flex items-center justify-center transition opacity-0 group-hover:opacity-100 z-10" title="현재 사진 다운로드">
                         <i class="fa-solid fa-download text-xs"></i>
                     </button>
 
@@ -500,69 +434,26 @@ syncViewMode(); // 이 줄을 추가하세요!
                         <p class="text-xs font-bold truncate">${post.Author}</p>
                         <div class="flex items-center justify-between text-[10px] mt-1 text-gray-300">
                             <span><i class="fa-solid fa-heart"></i> ${post.Likes}</span>
-                            ${images.length > 1 ? `<span><i class="fa-solid fa-copy"></i> ${images.length}</span>` : ''}
                         </div>
                     </div>`;
                 container.appendChild(card);
             });
         }
 
-        window.moveCarousel = function(postId, direction, total) {
-            const container = document.getElementById(`carousel-${postId}`);
-            const card = container.closest('[data-carousel-index]');
-            let idx = parseInt(card.dataset.carouselIndex) + direction;
-            
-            if (idx < 0) idx = 0; 
-            if (idx >= total) idx = total - 1;
-            
-            card.dataset.carouselIndex = idx;
-            container.style.transform = `translateX(-${idx * 100}%)`;
-            document.getElementById(`indicator-${postId}`).innerText = idx + 1;
 
-            const prevBtn = document.getElementById(`prevBtn-${postId}`);
-            const nextBtn = document.getElementById(`nextBtn-${postId}`);
-            
-            if (prevBtn) {
-                if (idx === 0) prevBtn.classList.add("hidden");
-                else prevBtn.classList.remove("hidden");
-            }
-            if (nextBtn) {
-                if (idx === total - 1) nextBtn.classList.add("hidden");
-                else nextBtn.classList.remove("hidden");
-            }
-        }
+        // ==========================================
+        // 1게시물 1사진 전용 스와이프 로직
+        // ==========================================
 
-        let currentModalImages = [];
-        let currentModalIdx = 0;
-        let currentModalBaseFilename = ""; 
-        let currentModalPostLink = ""; 
+        let currentModalPostIndex = 0; // 현재 보고 있는 전체 필터링 결과의 인덱스
+        let currentModalBaseFilename = "";
 
-        window.openFeedLightbox = function(postId, imgIdx) {
-            const post = allPosts.find(p => p.id === postId);
-            if (!post || !post.Images) return;
-            const images = post.Images.split('\n').filter(u => u.trim() !== '');
-            
-            const safeAuthor = post.Author.replace(/[^a-zA-Z0-9가-힣]/g, '_').substring(0, 10);
-            const dateStr = (post.Date_Absolute || '000000').substring(0,10).replace(/-/g, '');
-            const postNum = post.id.replace(/\D/g, '');
-            const baseFilename = `${dateStr}_${safeAuthor}_${postNum}`;
-            
-            openLightbox(images, baseFilename, post.Post_Link, imgIdx);
-        }
+        // 게시물 ID를 받아 라이트박스를 엽니다.
+        window.openLightboxByPostId = function(postId) {
+            const index = filteredPosts.findIndex(p => p.id === postId);
+            if (index === -1) return;
 
-        function openLightbox(images, baseFilename, postLink, initialIdx = 0) {
-            currentModalImages = images; 
-            currentModalIdx = initialIdx;
-            currentModalBaseFilename = baseFilename;
-            currentModalPostLink = postLink;
-
-            const linkBtn = document.getElementById("lightboxPostLink");
-            linkBtn.href = postLink;
-            if (postLink === "#" || !postLink) {
-                linkBtn.classList.add("hidden");
-            } else {
-                linkBtn.classList.remove("hidden");
-            }
+            currentModalPostIndex = index;
 
             document.getElementById("lightboxModal").classList.remove("hidden");
             document.body.classList.add("overflow-hidden");
@@ -570,55 +461,120 @@ syncViewMode(); // 이 줄을 추가하세요!
             updateModalImage();
         }
 
-        function closeLightbox() {
- document.getElementById("lightboxModal").classList.add("hidden");
-    document.body.classList.remove("overflow-hidden");
-
-    // 만약 브라우저 기록에 모달 상태가 남아있다면, 
-    // 뒤로 가기를 실행하지 않고 현재 상태를 유지하며 닫기만 합니다.
-    // 이렇게 하면 페이지 이동 없이 모달만 정상적으로 닫힙니다.
-}
-
         function updateModalImage() {
+            const post = filteredPosts[currentModalPostIndex];
+            // 각 포스트가 사진 1장이므로 무조건 첫 번째 URL만 가져옴
+            const imageUrl = post.Images.split('\n').filter(u => u.trim() !== '')[0];
+            
+            // 다운로드를 위한 파일명 생성
+            const safeAuthor = post.Author.replace(/[^a-zA-Z0-9가-힣]/g, '_').substring(0, 10);
+            const dateStr = (post.Date_Absolute || '000000').substring(0,10).replace(/-/g, '');
+            const postNum = post.id.replace(/\D/g, '');
+            currentModalBaseFilename = `${dateStr}_${safeAuthor}_${postNum}`;
+
+            // 원본 링크 업데이트
+            const linkBtn = document.getElementById("lightboxPostLink");
+            linkBtn.href = post.Post_Link;
+            if (post.Post_Link === "#" || !post.Post_Link) {
+                linkBtn.classList.add("hidden");
+            } else {
+                linkBtn.classList.remove("hidden");
+            }
+
+            // 이미지 업데이트
             const track = document.getElementById("modalCarouselTrack");
-            track.innerHTML = `<img src="${currentModalImages[currentModalIdx]}" onerror="this.onerror=null; this.src='${fallbackImg}';" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" alt="원본">`;
+            track.innerHTML = `<img src="${imageUrl}" onerror="this.onerror=null; this.src='${fallbackImg}';" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl transition-transform" alt="원본">`;
+            
+            // 하단 정보 표시 (전체 게시물 기준 진행도)
+            const infoBadge = document.getElementById("lightboxPostInfo");
+            infoBadge.innerHTML = `<span class="font-bold text-white">${post.Author}</span> <span class="text-gray-500 mx-2">|</span> ${currentModalPostIndex + 1} / ${filteredPosts.length}`;
+
+            // 처음이나 끝에 도달했을 때 이전/다음 버튼 숨기기
             const prevBtn = document.getElementById("modalPrevBtn");
             const nextBtn = document.getElementById("modalNextBtn");
-            if (currentModalImages.length > 1) {
-                prevBtn.classList.toggle("hidden", currentModalIdx === 0);
-                nextBtn.classList.toggle("hidden", currentModalIdx === currentModalImages.length - 1);
-            } else { prevBtn.classList.add("hidden"); nextBtn.classList.add("hidden"); }
+            
+            if (currentModalPostIndex === 0) {
+                prevBtn.classList.add("hidden");
+            } else {
+                prevBtn.classList.remove("hidden");
+            }
+
+            if (currentModalPostIndex === filteredPosts.length - 1) {
+                nextBtn.classList.add("hidden");
+            } else {
+                nextBtn.classList.remove("hidden");
+            }
         }
 
-        document.getElementById("modalPrevBtn").onclick = (e) => { e.stopPropagation(); if(currentModalIdx > 0) { currentModalIdx--; updateModalImage(); } };
-        document.getElementById("modalNextBtn").onclick = (e) => { e.stopPropagation(); if(currentModalIdx < currentModalImages.length - 1) { currentModalIdx++; updateModalImage(); } };
+        // 다음 게시물로 넘어가기
+        window.nextLightboxImage = function(e) {
+            if(e) e.stopPropagation();
+            if (currentModalPostIndex < filteredPosts.length - 1) {
+                currentModalPostIndex++;
+                updateModalImage();
+            }
+        }
 
+        // 이전 게시물로 넘어가기
+        window.prevLightboxImage = function(e) {
+            if(e) e.stopPropagation();
+            if (currentModalPostIndex > 0) {
+                currentModalPostIndex--;
+                updateModalImage();
+            }
+        }
+
+        // 터치/스와이프 로직
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const swipeThreshold = 50; 
+
+        const lightboxModalElement = document.getElementById("lightboxModal");
+
+        lightboxModalElement.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        lightboxModalElement.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            
+            const swipeDistance = touchEndX - touchStartX;
+            
+            // 왼쪽으로 스와이프 -> 다음 사진(게시물)
+            if (swipeDistance < -swipeThreshold) {
+                nextLightboxImage();
+            } 
+            // 오른쪽으로 스와이프 -> 이전 사진(게시물)
+            else if (swipeDistance > swipeThreshold) {
+                prevLightboxImage();
+            }
+        }, { passive: true });
+
+        // 다운로드 로직 연동
         async function downloadLightboxImage(event) {
             event.stopPropagation();
-            if (currentModalImages.length === 0) return;
+            const post = filteredPosts[currentModalPostIndex];
+            const imageUrl = post.Images.split('\n').filter(u => u.trim() !== '')[0];
+            if (!imageUrl) return;
             
-            const url = currentModalImages[currentModalIdx];
-            const baseFilename = `${currentModalBaseFilename}_${currentModalIdx + 1}`;
+            const baseFilename = currentModalBaseFilename;
             
             const icon = document.getElementById('lightboxDownloadIcon');
             const originalClass = icon.className;
             icon.className = "fa-solid fa-circle-notch animate-spin";
             
-            await triggerDirectDownload(url, baseFilename);
+            await triggerDirectDownload(imageUrl, baseFilename);
             
             icon.className = originalClass; 
         }
 
-function toggleViewMode() {
-    const feed = document.getElementById("feedView");
-    const gallery = document.getElementById("galleryView");
-    // 아이콘 버튼이 있다면 ID를 부여하고 여기서 참조하세요 (예: viewToggleIcon)
-    
-    isGalleryMode = !isGalleryMode;
-    
-    syncViewMode(); // 위에서 만든 동기화 함수 재활용
-    triggerSearch();
-}
+        function closeLightbox() {
+            document.getElementById("lightboxModal").classList.add("hidden");
+            document.body.classList.remove("overflow-hidden");
+        }
+
+        // ==========================================
+
 
         function initInfiniteScroll() {
             const observer = new IntersectionObserver((entries) => {
@@ -637,35 +593,36 @@ function toggleViewMode() {
                 return `<a href="${url}" target="_blank" class="text-blue-400 hover:underline break-all">${url}</a>`;
             });
         }
-window.addEventListener('popstate', (event) => {
-    const modal = document.getElementById("lightboxModal");
-    if (!modal.classList.contains("hidden")) {
-        modal.classList.add("hidden");
-        document.body.classList.remove("overflow-hidden");
-    }
-});
-let lastScrollTop = 0;
-const header = document.querySelector('header');
+        
+        window.addEventListener('popstate', (event) => {
+            const modal = document.getElementById("lightboxModal");
+            if (!modal.classList.contains("hidden")) {
+                modal.classList.add("hidden");
+                document.body.classList.remove("overflow-hidden");
+            }
+        });
 
-window.addEventListener('scroll', () => {
-    let currentScroll = window.pageYOffset || document.documentElement.scrollTop;
-    
-    // 최소 50px 이상 스크롤 했을 때만 반응하도록 설정 (헤더가 바로 사라지는 것 방지)
-    if (currentScroll > 50) {
-        if (currentScroll > lastScrollTop) {
-            // 아래로 스크롤 시 헤더 숨기기
-            header.classList.add('-translate-y-full');
-        } else {
-            // 위로 스크롤 시 헤더 보이기
-            header.classList.remove('-translate-y-full');
-        }
-    } else {
-        // 최상단 근처일 때는 헤더가 항상 보이도록 설정
-        header.classList.remove('-translate-y-full');
-    }
-    
-    lastScrollTop = currentScroll <= 0 ? 0 : currentScroll; // 음수 스크롤 방지
-}, false);
+        let lastScrollTop = 0;
+        const header = document.querySelector('header');
+        // 헤더의 높이를 미리 계산해둡니다 (헤더가 사라지는 범위)
+        const headerHeight = header.offsetHeight;
+        let currentOffset = 0; // 현재 헤더의 위치 (0 ~ -headerHeight)
+
+        window.addEventListener('scroll', () => {
+            let currentScroll = window.scrollY || document.documentElement.scrollTop;
+            
+            // 스크롤 방향 계산 (위로 이동하면 +값, 아래로 이동하면 -값)
+            let delta = lastScrollTop - currentScroll;
+            
+            // 스크롤 이동량만큼 offset을 누적 (0보다 크면 0으로, -height보다 작으면 -height로 고정)
+            currentOffset = Math.min(0, Math.max(-headerHeight, currentOffset + delta));
+            
+            // transform 속성을 실시간으로 적용
+            header.style.transform = `translateY(${currentOffset}px)`;
+            header.style.transition = 'none'; // 부드러운 추종을 위해 애니메이션 제거
+            
+            lastScrollTop = currentScroll;
+        }, false);
     </script>
 </body>
 </html>
