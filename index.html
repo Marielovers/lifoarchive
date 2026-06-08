@@ -565,13 +565,15 @@
         }
 
         function closeLightbox() {
-            if (window.history.state && window.history.state.modal === 'lightbox') {
+    // History API: 모달이 열려있어서 뒤로가기 기록이 있다면 그것을 실행
+    if (window.history.state && window.history.state.modal === 'lightbox') {
         window.history.back();
     } else {
         // 이미 닫혔거나 직접 호출된 경우 대비
         document.getElementById("lightboxModal").classList.add("hidden");
         document.body.classList.remove("overflow-hidden");
-        }
+    }
+}
 
         function updateModalImage() {
             const track = document.getElementById("modalCarouselTrack");
