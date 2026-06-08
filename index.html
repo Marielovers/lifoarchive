@@ -36,7 +36,7 @@
     </div>
 
     <div id="mainContent" class="opacity-0 transition-opacity duration-500 pointer-events-none">
-        <header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
+        <header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm transition-transform duration-300">
             <div class="max-w-5xl mx-auto px-4 py-3 flex flex-col md:flex-row gap-3 items-center justify-between">
                 
                 <div class="flex flex-wrap items-center gap-2 w-full md:w-auto flex-1">
@@ -565,14 +565,12 @@
         }
 
         function closeLightbox() {
-    // History API: 모달이 열려있어서 뒤로가기 기록이 있다면 그것을 실행
-    if (window.history.state && window.history.state.modal === 'lightbox') {
-        window.history.back();
-    } else {
-        // 이미 닫혔거나 직접 호출된 경우 대비
-        document.getElementById("lightboxModal").classList.add("hidden");
-        document.body.classList.remove("overflow-hidden");
-    }
+    document.getElementById("lightboxModal").classList.add("hidden");
+    document.body.classList.remove("overflow-hidden");
+
+    // 만약 브라우저 기록에 모달 상태가 남아있다면, 
+    // 뒤로 가기를 실행하지 않고 현재 상태를 유지하며 닫기만 합니다.
+    // 이렇게 하면 페이지 이동 없이 모달만 정상적으로 닫힙니다.
 }
 
         function updateModalImage() {
@@ -641,6 +639,28 @@ window.addEventListener('popstate', (event) => {
         document.body.classList.remove("overflow-hidden");
     }
 });
+let lastScrollTop = 0;
+const header = document.querySelector('header');
+
+window.addEventListener('scroll', () => {
+    let currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+    
+    // 최소 50px 이상 스크롤 했을 때만 반응하도록 설정 (헤더가 바로 사라지는 것 방지)
+    if (currentScroll > 50) {
+        if (currentScroll > lastScrollTop) {
+            // 아래로 스크롤 시 헤더 숨기기
+            header.classList.add('-translate-y-full');
+        } else {
+            // 위로 스크롤 시 헤더 보이기
+            header.classList.remove('-translate-y-full');
+        }
+    } else {
+        // 최상단 근처일 때는 헤더가 항상 보이도록 설정
+        header.classList.remove('-translate-y-full');
+    }
+    
+    lastScrollTop = currentScroll <= 0 ? 0 : currentScroll; // 음수 스크롤 방지
+}, false);
     </script>
 </body>
 </html>
