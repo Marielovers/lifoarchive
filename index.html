@@ -560,12 +560,17 @@
 
             document.getElementById("lightboxModal").classList.remove("hidden");
             document.body.classList.add("overflow-hidden");
+            window.history.pushState({ modal: 'lightbox' }, '');
             updateModalImage();
         }
 
         function closeLightbox() {
-            document.getElementById("lightboxModal").classList.add("hidden");
-            document.body.classList.remove("overflow-hidden");
+            if (window.history.state && window.history.state.modal === 'lightbox') {
+        window.history.back();
+    } else {
+        // 이미 닫혔거나 직접 호출된 경우 대비
+        document.getElementById("lightboxModal").classList.add("hidden");
+        document.body.classList.remove("overflow-hidden");
         }
 
         function updateModalImage() {
