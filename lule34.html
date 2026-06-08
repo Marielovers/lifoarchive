@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lule34</title>
+    
+    <meta name="referrer" content="no-referrer">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-200 font-sans antialiased pb-12">
+
+    <div id="uploadScreen" class="fixed inset-0 z-50 bg-gray-950 text-white flex flex-col items-center justify-center p-6 transition-all duration-500">
+        <div id="statusBox" class="max-w-md w-full text-center space-y-6">
+            <div id="loadingIcon" class="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-full shadow-lg mb-2">
+                <i class="fa-solid fa-circle-notch animate-spin text-3xl"></i>
+            </div>
+            <h1 id="statusTitle" class="text-2xl font-bold">게시글 자동으로 불러오는 중...</h1>
+            <p id="statusDesc" class="text-sm text-gray-400 leading-relaxed">
+                보관소 내의 <code class="text-blue-400 font-mono">lule34.csv</code> 파일을 로드하고 있습니다.
+            </p>
+            
+            <div id="dropZone" class="border-2 border-dashed border-gray-700 hover:border-blue-500 rounded-2xl p-8 cursor-pointer transition bg-gray-900/50 group hidden">
+                <input type="file" id="fileInput" accept=".csv" class="hidden">
+                <i class="fa-solid fa-cloud-arrow-up text-4xl text-gray-500 group-hover:text-blue-400 mb-3 transition"></i>
+                <p class="text-sm text-gray-300 group-hover:text-white transition">파일을 여기에 드래그하거나 클릭하세요</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainContent" class="opacity-0 transition-opacity duration-500 pointer-events-none">
+        <header class="sticky top-0 z-40 bg-gray-900/80 backdrop-blur-md border-b border-gray-800 shadow-sm">
+            <div class="max-w-5xl mx-auto px-4 py-3 flex flex-col md:flex-row gap-3 items-center justify-between">
+                
+                <div class="flex flex-wrap items-center gap-2 w-full md:w-auto flex-1">
+                    <select id="sortType" onchange="triggerSearch()" class="bg-gray-800 border border-gray-700 text-sm font-medium rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5 outline-none shadow-sm cursor-pointer text-gray-200">
+                        <option value="latest">최신순</option>
+                        <option value="oldest">오래된 순</option>
+                        <option value="popular">인기순 (추천+댓글)</option>
+                    </select>
+
+                    <select id="searchType" onchange="triggerSearch()" class="bg-gray-800 border border-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5 outline-none cursor-pointer text-gray-200">
+                        <option value="all">전체 검색</option>
+                        <option value="text">내용</option>
+                        <option value="author">작성자</option>
+                    </select>
+                    
+                    <div class="relative flex-1 min-w-[150px]">
+                        <input type="text" id="searchQuery" oninput="triggerSearch()" placeholder="검색어를 입력하세요..." 
+                               class="w-full bg-gray-800 border border-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5 pr-10 outline-none text-white placeholder-gray-500">
+                        <span class="absolute right-3 top-3 text-gray-500">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </span>
+                    </div>
+
+                    <div class="relative">
+                        <button id="dateFilterBtn" onclick="toggleDatePanel(event)" class="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm font-medium rounded-lg p-2.5 flex items-center gap-2 outline-none transition whitespace-nowrap text-gray-200">
+                            <i class="fa-regular fa-calendar-days text-gray-500"></i>
+                            <span id="dateFilterLabel">기간 전체</span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-gray-400"></i>
+                        </button>
+                        
+                        <div id="datePanel" class="hidden absolute right-0 md:left-0 md:right-auto top-full mt-2 bg-gray-800 border border-gray-700 rounded-xl shadow-xl p-4 z-50 w-72 space-y-3" onclick="event.stopPropagation()">
+                            <div class="space-y-1">
+                                <label class="text-xs font-semibold text-gray-500">시작일</label>
+                                <input type="date" id="startDate" class="w-full bg-gray-900 border border-gray-700 text-sm rounded-lg p-2 outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-200">
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs font-semibold text-gray-500">종료일</label>
+                                <input type="date" id="endDate" class="w-full bg-gray-900 border border-gray-700 text-sm rounded-lg p-2 outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-200">
+                            </div>
+                            <div class="flex items-center gap-2 pt-1">
+                                <button onclick="resetDateFilter()" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium py-1.5 rounded-lg text-xs transition">초기화</button>
+                                <button onclick="applyDateFilter()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-1.5 rounded-lg text-xs transition">적용</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-2 w-full md:w-auto mt-3 md:mt-0">
+                    <button id="toggleindex" onclick="window.location.href='index.html'" 
+                            class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm px-4 py-2.5 text-center flex items-center justify-center gap-2 transition shadow-sm whitespace-nowrap">
+                         <span id="viewBtnText">온리리온 남극 지점</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-4xl mx-auto px-4 mt-6">
+            <div id="feedView" class="space-y-4 max-w-xl mx-auto"></div>
+            <div id="galleryView" class="grid grid-cols-2 md:grid-cols-4 gap-4 hidden"></div>
+
+            <div id="loadingTrigger" class="text-center py-8 text-gray-500 text-sm">
+                <i class="fa-solid fa-circle-notch animate-spin text-xl text-blue-500"></i>
+                <p class="mt-2">게시글 로딩 중...</p>
+            </div>
+        </main>
+    </div>
+
+    <div id="lightboxModal" class="fixed inset-0 bg-black/95 z-50 hidden flex items-center justify-center p-4" onclick="closeLightbox()">
+        <div class="absolute top-4 right-4 flex items-center gap-5 z-50">
+            <a id="lightboxPostLink" href="#" target="_blank" onclick="event.stopPropagation()" class="text-white text-2xl hover:text-blue-400 transition" title="원본 게시글 보기">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            </a>
+            <button onclick="event.stopPropagation(); downloadLightboxImage(event)" class="text-white text-3xl hover:text-green-400 transition" title="현재 사진 다운로드">
+                <i id="lightboxDownloadIcon" class="fa-solid fa-download"></i>
+            </button>
+            <button class="text-white text-3xl hover:text-gray-300 transition" onclick="closeLightbox()" title="닫기">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="relative max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center" onclick="event.stopPropagation()">
+            <div id="modalCarouselTrack" class="w-full h-full flex items-center justify-center"></div>
+            <button id="modalPrevBtn" class="absolute left-4 bg-black/50 text-white p-3 rounded-full hover:bg-black/80"><i class="fa-solid fa-chevron-left"></i></button>
+            <button id="modalNextBtn" class="absolute right-4 bg-black/50 text-white p-3 rounded-full hover:bg-black/80"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+    </div>
+
+    <script>
+        let allPosts = [];
+        let filteredPosts = [];
+        let page = 1;
+        const limit = 10;
+        let isGalleryMode = true;
+        let isLoading = false;
+
+        const csvFileName = "lule34.csv";
+        const defaultProfile = "https://www.gstatic.com/youtube/src/web/htdocs/img/avatar_unsubscribed.png";
+        const fallbackImg = "https://via.placeholder.com/500?text=Image+Loading+Failed";
+
+        document.addEventListener("DOMContentLoaded", () => {
+            attemptAutoLoad();
+            initManualUpload();
+            
+            window.addEventListener("click", () => {
+                document.getElementById("datePanel").classList.add("hidden");
+            });
+        });
+
+        function attemptAutoLoad() {
+            fetch(csvFileName)
+                .then(response => {
+                    if (!response.ok) throw new Error("네트워크 오류");
+                    return response.text();
+                })
+                .then(csvText => parseAndInitialize(csvText))
+                .catch(error => {
+                    console.log("자동 로드 실패, 수동 모드로 전환합니다.");
+                    switchToManualMode();
+                });
+        }
+
+        function switchToManualMode() {
+            document.getElementById("loadingIcon").innerHTML = '<i class="fa-solid fa-file-csv text-3xl"></i>';
+            document.getElementById("statusTitle").innerText = "수동 게시글 로더";
+            document.getElementById("statusDesc").innerHTML = `자동 불러오기에 실패했습니다. <br><code class="text-blue-400 font-mono">${csvFileName}</code> 파일을 아래 구역에 드롭해 주세요.`;
+            document.getElementById("dropZone").classList.remove("hidden");
+        }
+
+        function initManualUpload() {
+            const dropZone = document.getElementById("dropZone");
+            const fileInput = document.getElementById("fileInput");
+            dropZone.onclick = () => fileInput.click();
+            fileInput.onchange = (e) => processFile(e.target.files[0]);
+            dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add("border-blue-500", "bg-gray-800"); };
+            dropZone.ondragleave = (e) => { e.preventDefault(); dropZone.classList.remove("border-blue-500", "bg-gray-800"); };
+            dropZone.ondrop = (e) => { e.preventDefault(); processFile(e.dataTransfer.files[0]); };
+        }
+
+        function processFile(file) {
+            if (!file || !file.name.endsWith(".csv")) { alert("CSV 파일을 등록해 주세요."); return; }
+            Papa.parse(file, { header: true, skipEmptyLines: true, complete: function(results) { initializeData(results.data); } });
+        }
+
+        function parseAndInitialize(csvText) {
+            Papa.parse(csvText, { header: true, skipEmptyLines: true, complete: function(results) { initializeData(results.data); } });
+        }
+
+function syncViewMode() {
+    const feed = document.getElementById("feedView");
+    const gallery = document.getElementById("galleryView");
+
+    if (isGalleryMode) {
+        feed.classList.add("hidden");
+        gallery.classList.remove("hidden");
+    } else {
+        feed.classList.remove("hidden");
+        gallery.classList.add("hidden");
+    }
+}
+
+        function initializeData(parsedData) {
+            allPosts = parsedData.map((row, idx) => {
+                let profImg = row['Profile Image'] ? row['Profile Image'].trim() : '';
+                if (profImg === "프로필 없음" || !profImg.startsWith('http')) { profImg = ''; }
+
+                let contentText = row['Text'] ? row['Text'].trim() : '';
+                if (contentText === "텍스트 없음") { contentText = ''; }
+
+                let postImages = row['Images (Original)'] ? row['Images (Original)'].trim() : '';
+                if (postImages === "텍스트 없음" || postImages === "이미지 없음") { postImages = ''; }
+
+                return {
+                    id: `local_post_${idx}`,
+                    Author: row['Author'] || '작성자 불명',
+                    Profile_Image: profImg,
+                    Date_Absolute: row['Date (Absolute)'] || '날짜 불명',
+                    Date_Original: row['Date (Original)'] || '',
+                    Post_Link: row['Post Link'] === "링크 없음" ? "#" : (row['Post Link'] || '#'),
+                    Likes: row['Likes'] || '0',
+                    Comments: row['Comments'] || '0',
+                    Text: contentText,
+                    Images: postImages
+                };
+            });
+
+            document.getElementById("uploadScreen").classList.add("opacity-0", "pointer-events-none");
+            const main = document.getElementById("mainContent");
+            main.classList.remove("opacity-0", "pointer-events-none");
+            main.classList.add("opacity-100");
+syncViewMode(); // 이 줄을 추가하세요!
+            triggerSearch();
+            initInfiniteScroll();
+        }
+
+        function toggleDatePanel(event) {
+            event.stopPropagation();
+            const panel = document.getElementById("datePanel");
+            panel.classList.toggle("hidden");
+        }
+
+        function applyDateFilter() {
+            const start = document.getElementById("startDate").value;
+            const end = document.getElementById("endDate").value;
+            const label = document.getElementById("dateFilterLabel");
+            const btn = document.getElementById("dateFilterBtn");
+
+            if (start || end) {
+                const startStr = start ? start.substring(5).replace('-', '.') : '...';
+                const endStr = end ? end.substring(5).replace('-', '.') : '...';
+                label.innerText = `${startStr} ~ ${endStr}`;
+                btn.classList.add("border-blue-500", "bg-blue-900/30", "text-blue-400");
+            } else {
+                label.innerText = "기간 전체";
+                btn.classList.remove("border-blue-500", "bg-blue-900/30", "text-blue-400");
+            }
+
+            document.getElementById("datePanel").classList.add("hidden");
+            triggerSearch();
+        }
+
+        function resetDateFilter() {
+            document.getElementById("startDate").value = "";
+            document.getElementById("endDate").value = "";
+            applyDateFilter();
+        }
+
+        function parseKoreanNumber(str) {
+            if (!str) return 0;
+            let val = str.replace(/,/g, '');
+            let multiplier = 1;
+            if (val.includes('만')) {
+                multiplier = 10000;
+                val = val.replace('만', '');
+            } else if (val.includes('천')) {
+                multiplier = 1000;
+                val = val.replace('천', '');
+            }
+            return parseFloat(val) * multiplier || 0;
+        }
+
+        function triggerSearch() {
+            const type = document.getElementById("searchType").value;
+            const sortType = document.getElementById("sortType").value;
+            const query = document.getElementById("searchQuery").value.toLowerCase().trim();
+            const startDate = document.getElementById("startDate").value;
+            const endDate = document.getElementById("endDate").value;
+
+            filteredPosts = allPosts.filter(post => {
+                let matchesSearch = true;
+                if (query) {
+                    if (type === "text") matchesSearch = post.Text.toLowerCase().includes(query);
+                    else if (type === "author") matchesSearch = post.Author.toLowerCase().includes(query);
+                    else matchesSearch = post.Text.toLowerCase().includes(query) || post.Author.toLowerCase().includes(query);
+                }
+
+                let matchesDate = true;
+                if (post.Date_Absolute && post.Date_Absolute !== '날짜 불명') {
+                    const postDateStr = post.Date_Absolute.substring(0, 10);
+                    if (startDate && postDateStr < startDate) matchesDate = false;
+                    if (endDate && postDateStr > endDate) matchesDate = false;
+                } else if (startDate || endDate) {
+                    matchesDate = false;
+                }
+
+                return matchesSearch && matchesDate;
+            });
+
+            if (isGalleryMode) {
+                filteredPosts = filteredPosts.filter(post => post.Images.trim() !== "");
+            }
+
+            filteredPosts.sort((a, b) => {
+                const dateA = a.Date_Absolute === '날짜 불명' ? '1900-01-01' : a.Date_Absolute;
+                const dateB = b.Date_Absolute === '날짜 불명' ? '1900-01-01' : b.Date_Absolute;
+
+                if (sortType === "latest") return dateB.localeCompare(dateA);
+                if (sortType === "oldest") return dateA.localeCompare(dateB);
+                if (sortType === "popular") {
+                    const scoreA = parseKoreanNumber(a.Likes) + parseKoreanNumber(a.Comments);
+                    const scoreB = parseKoreanNumber(b.Likes) + parseKoreanNumber(b.Comments);
+                    if (scoreB === scoreA) return dateB.localeCompare(dateA);
+                    return scoreB - scoreA;
+                }
+                return 0;
+            });
+
+            document.getElementById("feedView").innerHTML = "";
+            document.getElementById("galleryView").innerHTML = "";
+            page = 1;
+            renderNextBatch();
+        }
+
+        async function triggerDirectDownload(url, baseFilename) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Network error');
+                const blob = await response.blob();
+                
+                let ext = blob.type.split('/')[1] || 'jpg';
+                if (ext === 'jpeg') ext = 'jpg'; 
+                
+                const finalFilename = `${baseFilename}.${ext}`;
+                
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = blobUrl;
+                a.download = finalFilename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(blobUrl);
+                return true;
+            } catch (err) {
+                console.error(`다운로드 실패: ${url}`, err);
+                return false;
+            }
+        }
+
+        async function downloadGalleryPostImages(event, postId) {
+            event.stopPropagation(); 
+            
+            const btn = event.currentTarget;
+            const post = allPosts.find(p => p.id === postId);
+            if (!post || !post.Images) return;
+            
+            const images = post.Images.split('\n').filter(u => u.trim() !== '');
+            if (images.length === 0) return;
+
+            const safeAuthor = post.Author.replace(/[^a-zA-Z0-9가-힣]/g, '_').substring(0, 10);
+            const dateStr = (post.Date_Absolute || '000000').substring(0,10).replace(/-/g, '');
+            const postNum = post.id.replace(/\D/g, '');
+            
+            const originalIcon = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin text-xs"></i>`;
+            btn.disabled = true;
+
+            for (let i = 0; i < images.length; i++) {
+                const baseFilename = `${dateStr}_${safeAuthor}_${postNum}_${i+1}`;
+                await triggerDirectDownload(images[i], baseFilename);
+                if (images.length > 1) await new Promise(r => setTimeout(r, 300));
+            }
+
+            btn.innerHTML = originalIcon;
+            btn.disabled = false;
+        }
+
+        function renderNextBatch() {
+            if (isLoading) return;
+            isLoading = true;
+
+            const start = (page - 1) * limit;
+            const end = start + limit;
+            const batch = filteredPosts.slice(start, end);
+            const trigger = document.getElementById("loadingTrigger");
+
+            if (batch.length === 0) {
+                if (page === 1) {
+                    trigger.innerHTML = `
+                        <div class="text-center py-12 text-gray-500">
+                            <i class="fa-solid fa-magnifying-glass text-3xl mb-2 block"></i> 일치하는 게시글이 없습니다.
+                        </div>`;
+                } else {
+                    trigger.innerHTML = "<p class='text-gray-500 text-xs'>모든 게시글을 확인했습니다.</p>";
+                }
+                isLoading = false;
+                return;
+            }
+
+            trigger.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin text-xl text-blue-500"></i><p class="mt-2">게시글 로딩 중...</p>`;
+
+            if (isGalleryMode) { renderGalleryLayout(batch); } else { renderFeedLayout(batch); }
+
+            page++;
+            isLoading = false;
+
+            if (end >= filteredPosts.length) {
+                trigger.innerHTML = "<p class='text-gray-500 text-xs'>모든 게시글을 확인했습니다.</p>";
+            }
+        }
+
+        function renderFeedLayout(posts) {
+            const container = document.getElementById("feedView");
+            posts.forEach(post => {
+                const images = post.Images ? post.Images.split('\n') : [];
+                let imageMarkup = '';
+
+                if (images.length > 0) {
+                    let items = '';
+                    images.forEach((url, imgIdx) => {
+                        items += `
+                            <div class="w-full flex-shrink-0 flex justify-center bg-black/20 overflow-hidden">
+                                <img src="${url}" onerror="this.onerror=null; this.src='https://via.placeholder.com/500?text=Image+Loading+Failed';" 
+                                     onclick="openFeedLightbox('${post.id}', ${imgIdx})"
+                                     class="w-full h-auto max-h-[75vh] object-contain select-none cursor-pointer hover:opacity-95 transition" 
+                                     loading="lazy" alt="본문">
+                            </div>`;
+                    });
+
+                    imageMarkup = `
+                        <div class="relative overflow-hidden group rounded-lg mt-3 border border-gray-700 bg-gray-900/50">
+                            <div id="carousel-${post.id}" class="flex transition-transform duration-300 ease-out">
+                                ${items}
+                            </div>
+                            ${images.length > 1 ? `
+                                <button id="prevBtn-${post.id}" onclick="moveCarousel('${post.id}', -1, ${images.length})" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center transition opacity-0 group-hover:opacity-100 z-10 hidden"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+                                <button id="nextBtn-${post.id}" onclick="moveCarousel('${post.id}', 1, ${images.length})" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center transition opacity-0 group-hover:opacity-100 z-10"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+                                <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full z-10"><span id="indicator-${post.id}">1</span>/${images.length}</div>
+                            ` : ''}
+                        </div>`;
+                }
+
+                const card = document.createElement("div");
+                card.className = "bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-sm hover:shadow transition";
+                card.dataset.carouselIndex = 0;
+                card.innerHTML = `
+                    <div class="flex items-start space-x-3">
+                        <img src="${post.Profile_Image || defaultProfile}" onerror="this.onerror=null; this.src='${defaultProfile}';" class="w-10 h-10 rounded-full object-cover border border-gray-700 flex-shrink-0" alt="프로필">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-bold text-gray-100 truncate">${post.Author}</p>
+                            <p class="text-xs text-gray-400 mt-0.5" title="${post.Date_Original}">${post.Date_Absolute}</p>
+                        </div>
+                        <a href="${post.Post_Link}" target="_blank" class="text-gray-500 hover:text-blue-400 text-xs flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> 원본</a>
+                    </div>
+                    <div class="mt-3 text-[15px] leading-relaxed text-gray-300 whitespace-pre-wrap break-words">${linkify(escapeHtml(post.Text))}</div>
+                    ${imageMarkup}
+                    <div class="flex items-center gap-6 mt-4 text-xs font-medium text-gray-500 border-t border-gray-800 pt-3">
+                        <span class="flex items-center gap-1.5"><i class="fa-regular fa-heart text-sm"></i> ${post.Likes}</span>
+                        <span class="flex items-center gap-1.5"><i class="fa-regular fa-comment text-sm"></i> ${post.Comments}</span>
+                    </div>`;
+                container.appendChild(card);
+            });
+        }
+
+        function renderGalleryLayout(posts) {
+            const container = document.getElementById("galleryView");
+            posts.forEach(post => {
+                const images = post.Images ? post.Images.split('\n') : [];
+                if (images.length === 0) return;
+
+                const safeAuthor = post.Author.replace(/[^a-zA-Z0-9가-힣]/g, '_').substring(0, 10);
+                const dateStr = (post.Date_Absolute || '000000').substring(0,10).replace(/-/g, '');
+                const postNum = post.id.replace(/\D/g, '');
+                const baseFilename = `${dateStr}_${safeAuthor}_${postNum}`;
+
+                const card = document.createElement("div");
+                card.className = "aspect-square bg-gray-800 rounded-xl overflow-hidden cursor-pointer relative group border border-gray-700 shadow-sm transition transform hover:scale-[1.02]";
+                
+                card.onclick = () => openLightbox(images, baseFilename, post.Post_Link, 0);
+                card.innerHTML = `
+                    <img src="${images[0]}" onerror="this.onerror=null; this.src='${fallbackImg}';" class="w-full h-full object-cover" loading="lazy" alt="썸네일">
+                    
+                    <a href="${post.Post_Link}" target="_blank" onclick="event.stopPropagation()" class="absolute top-2 left-2 bg-black/60 hover:bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center transition opacity-0 group-hover:opacity-100 z-10" title="원본 게시글 보기">
+                        <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                    </a>
+
+                    <button onclick="downloadGalleryPostImages(event, '${post.id}')" class="absolute top-2 right-2 bg-black/60 hover:bg-green-600 text-white w-8 h-8 rounded-full flex items-center justify-center transition opacity-0 group-hover:opacity-100 z-10" title="이 게시글의 사진 모두 다운로드">
+                        <i class="fa-solid fa-download text-xs"></i>
+                    </button>
+
+                    <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex flex-col justify-end p-3 text-white pointer-events-none">
+                        <p class="text-xs font-bold truncate">${post.Author}</p>
+                        <div class="flex items-center justify-between text-[10px] mt-1 text-gray-300">
+                            <span><i class="fa-solid fa-heart"></i> ${post.Likes}</span>
+                            ${images.length > 1 ? `<span><i class="fa-solid fa-copy"></i> ${images.length}</span>` : ''}
+                        </div>
+                    </div>`;
+                container.appendChild(card);
+            });
+        }
+
+        window.moveCarousel = function(postId, direction, total) {
+            const container = document.getElementById(`carousel-${postId}`);
+            const card = container.closest('[data-carousel-index]');
+            let idx = parseInt(card.dataset.carouselIndex) + direction;
+            
+            if (idx < 0) idx = 0; 
+            if (idx >= total) idx = total - 1;
+            
+            card.dataset.carouselIndex = idx;
+            container.style.transform = `translateX(-${idx * 100}%)`;
+            document.getElementById(`indicator-${postId}`).innerText = idx + 1;
+
+            const prevBtn = document.getElementById(`prevBtn-${postId}`);
+            const nextBtn = document.getElementById(`nextBtn-${postId}`);
+            
+            if (prevBtn) {
+                if (idx === 0) prevBtn.classList.add("hidden");
+                else prevBtn.classList.remove("hidden");
+            }
+            if (nextBtn) {
+                if (idx === total - 1) nextBtn.classList.add("hidden");
+                else nextBtn.classList.remove("hidden");
+            }
+        }
+
+        let currentModalImages = [];
+        let currentModalIdx = 0;
+        let currentModalBaseFilename = ""; 
+        let currentModalPostLink = ""; 
+
+        window.openFeedLightbox = function(postId, imgIdx) {
+            const post = allPosts.find(p => p.id === postId);
+            if (!post || !post.Images) return;
+            const images = post.Images.split('\n').filter(u => u.trim() !== '');
+            
+            const safeAuthor = post.Author.replace(/[^a-zA-Z0-9가-힣]/g, '_').substring(0, 10);
+            const dateStr = (post.Date_Absolute || '000000').substring(0,10).replace(/-/g, '');
+            const postNum = post.id.replace(/\D/g, '');
+            const baseFilename = `${dateStr}_${safeAuthor}_${postNum}`;
+            
+            openLightbox(images, baseFilename, post.Post_Link, imgIdx);
+        }
+
+        function openLightbox(images, baseFilename, postLink, initialIdx = 0) {
+            currentModalImages = images; 
+            currentModalIdx = initialIdx;
+            currentModalBaseFilename = baseFilename;
+            currentModalPostLink = postLink;
+
+            const linkBtn = document.getElementById("lightboxPostLink");
+            linkBtn.href = postLink;
+            if (postLink === "#" || !postLink) {
+                linkBtn.classList.add("hidden");
+            } else {
+                linkBtn.classList.remove("hidden");
+            }
+
+            document.getElementById("lightboxModal").classList.remove("hidden");
+            document.body.classList.add("overflow-hidden");
+            updateModalImage();
+        }
+
+        function closeLightbox() {
+            document.getElementById("lightboxModal").classList.add("hidden");
+            document.body.classList.remove("overflow-hidden");
+        }
+
+        function updateModalImage() {
+            const track = document.getElementById("modalCarouselTrack");
+            track.innerHTML = `<img src="${currentModalImages[currentModalIdx]}" onerror="this.onerror=null; this.src='${fallbackImg}';" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" alt="원본">`;
+            const prevBtn = document.getElementById("modalPrevBtn");
+            const nextBtn = document.getElementById("modalNextBtn");
+            if (currentModalImages.length > 1) {
+                prevBtn.classList.toggle("hidden", currentModalIdx === 0);
+                nextBtn.classList.toggle("hidden", currentModalIdx === currentModalImages.length - 1);
+            } else { prevBtn.classList.add("hidden"); nextBtn.classList.add("hidden"); }
+        }
+
+        document.getElementById("modalPrevBtn").onclick = (e) => { e.stopPropagation(); if(currentModalIdx > 0) { currentModalIdx--; updateModalImage(); } };
+        document.getElementById("modalNextBtn").onclick = (e) => { e.stopPropagation(); if(currentModalIdx < currentModalImages.length - 1) { currentModalIdx++; updateModalImage(); } };
+
+        async function downloadLightboxImage(event) {
+            event.stopPropagation();
+            if (currentModalImages.length === 0) return;
+            
+            const url = currentModalImages[currentModalIdx];
+            const baseFilename = `${currentModalBaseFilename}_${currentModalIdx + 1}`;
+            
+            const icon = document.getElementById('lightboxDownloadIcon');
+            const originalClass = icon.className;
+            icon.className = "fa-solid fa-circle-notch animate-spin";
+            
+            await triggerDirectDownload(url, baseFilename);
+            
+            icon.className = originalClass; 
+        }
+
+function toggleViewMode() {
+    const feed = document.getElementById("feedView");
+    const gallery = document.getElementById("galleryView");
+    // 아이콘 버튼이 있다면 ID를 부여하고 여기서 참조하세요 (예: viewToggleIcon)
+    
+    isGalleryMode = !isGalleryMode;
+    
+    syncViewMode(); // 위에서 만든 동기화 함수 재활용
+    triggerSearch();
+}
+
+        function initInfiniteScroll() {
+            const observer = new IntersectionObserver((entries) => {
+                if (entries[0].isIntersecting && !isLoading && (page - 1) * limit < filteredPosts.length) { renderNextBatch(); }
+            }, { threshold: 0.1 });
+            observer.observe(document.getElementById("loadingTrigger"));
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function linkify(text) {
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            return text.replace(urlRegex, function(url) {
+                return `<a href="${url}" target="_blank" class="text-blue-400 hover:underline break-all">${url}</a>`;
+            });
+        }
+    </script>
+</body>
+</html>
