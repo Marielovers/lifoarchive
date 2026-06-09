@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>온리리온 남극 지점</title>
-    
+    <link rel="icon" href="icon.png" type="image/png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <meta name="referrer" content="no-referrer">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -525,10 +526,10 @@
                 return `<a href="${url}" target="_blank" class="text-blue-500 hover:underline break-all">${url}</a>`;
             });
 
-            // 4. 대피시켜뒀던 이모지들을 실제 이미지 태그로 복구 (parseCustomEmojis)
+            // 4. 대피시켜뒀던 이모지들을 실제 이미지 태그로 복구 (parseCustomEmojis) - 글자 크기(15px)의 두 배(30px) 및 중앙 정렬 적용
             safeText = safeText.replace(/__EMOJI_PLACEHOLDER_(\d+)__/g, function(match, index) {
                 const emoji = emojis[index];
-                return `<img src="${emoji.url}" alt="${emoji.alt}" title="${emoji.alt}" class="inline-block w-6 h-6 align-middle mx-0.5 select-none object-contain">`;
+                return `<img src="${emoji.url}" alt="${emoji.alt}" title="${emoji.alt}" class="inline-block h-[30px] w-auto align-middle mx-1 select-none object-contain">`;
             });
 
             return safeText;
