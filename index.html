@@ -13,6 +13,22 @@
     <style>
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* 댓글창 스크롤바 커스텀 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c1c1c1; 
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8; 
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans antialiased pb-12">
@@ -22,15 +38,15 @@
             <div id="loadingIcon" class="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-full shadow-lg mb-2">
                 <i class="fa-solid fa-circle-notch animate-spin text-3xl"></i>
             </div>
-            <h1 id="statusTitle" class="text-2xl font-bold">게시글 자동으로 불러오는 중...</h1>
+            <h1 id="statusTitle" class="text-2xl font-bold">데이터 자동으로 불러오는 중...</h1>
             <p id="statusDesc" class="text-sm text-gray-400 leading-relaxed">
-                보관소 내의 <code class="text-blue-400 font-mono">kawai_lifo.csv</code> 파일을 로드하고 있습니다.
+                보관소 내의 <br><code class="text-blue-400 font-mono">posts.csv</code> (게시글) 및 <br><code class="text-green-400 font-mono">comments.csv</code> (댓글) 파일을 로드하고 있습니다.
             </p>
             
             <div id="dropZone" class="border-2 border-dashed border-gray-600 hover:border-blue-500 rounded-2xl p-8 cursor-pointer transition bg-gray-800/50 group hidden">
-                <input type="file" id="fileInput" accept=".csv" class="hidden">
+                <input type="file" id="fileInput" accept=".csv" multiple class="hidden">
                 <i class="fa-solid fa-cloud-arrow-up text-4xl text-gray-500 group-hover:text-blue-400 mb-3 transition"></i>
-                <p class="text-sm text-gray-300 group-hover:text-white transition">파일을 여기에 드래그하거나 클릭하세요</p>
+                <p class="text-sm text-gray-300 group-hover:text-white transition">두 CSV 파일을 모두 이곳에 드래그하거나 클릭하세요</p>
             </div>
         </div>
     </div>
@@ -50,6 +66,7 @@
                         <option value="all">전체 검색</option>
                         <option value="text">내용</option>
                         <option value="author">작성자</option>
+                        <option value="comment">댓글</option>
                     </select>
                     
                     <div class="relative flex-1 min-w-[150px]">
@@ -90,9 +107,9 @@
                         <i class="fa-solid fa-images"></i> <span id="viewBtnText">갤러리 보기</span>
                     </button>
                     <button id="lule34Btn" onclick="window.location.href='lule34.html'" 
-        class="w-50 md:w-50 bg-black hover:bg-gray-900 text-red-500 font-bold border border-red-800 rounded-lg text-sm px-4 py-2.5 text-center flex items-center justify-center gap-2 transition shadow-sm whitespace-nowrap">
-    <span id="viewBtnText">Lule34</span>
-</button>
+                            class="w-50 md:w-50 bg-black hover:bg-gray-900 text-red-500 font-bold border border-red-800 rounded-lg text-sm px-4 py-2.5 text-center flex items-center justify-center gap-2 transition shadow-sm whitespace-nowrap">
+                        <span id="viewBtnText">Lule34</span>
+                    </button>
                 </div>
             </div>
         </header>
@@ -137,7 +154,8 @@
         let isGalleryMode = false;
         let isLoading = false;
 
-        const csvFileName = "kawai_lifo.csv";
+        const csvPostsName = "posts.csv";
+        const csvCommentsName = "comments.csv";
         const defaultProfile = "https://www.gstatic.com/youtube/src/web/htdocs/img/avatar_unsubscribed.png";
         const fallbackImg = "https://via.placeholder.com/500?text=Image+Loading+Failed";
 
@@ -151,22 +169,23 @@
         });
 
         function attemptAutoLoad() {
-            fetch(csvFileName)
-                .then(response => {
-                    if (!response.ok) throw new Error("네트워크 오류");
-                    return response.text();
-                })
-                .then(csvText => parseAndInitialize(csvText))
-                .catch(error => {
-                    console.log("자동 로드 실패, 수동 모드로 전환합니다.");
-                    switchToManualMode();
-                });
+            Promise.all([
+                fetch(csvPostsName).then(res => { if(!res.ok) throw new Error("게시글 없음"); return res.text(); }),
+                fetch(csvCommentsName).then(res => { if(!res.ok) return ""; return res.text(); }).catch(() => "")
+            ])
+            .then(([postsCsvText, commentsCsvText]) => {
+                parseAndInitialize(postsCsvText, commentsCsvText);
+            })
+            .catch(error => {
+                console.log("자동 로드 실패, 수동 모드로 전환합니다.");
+                switchToManualMode();
+            });
         }
 
         function switchToManualMode() {
             document.getElementById("loadingIcon").innerHTML = '<i class="fa-solid fa-file-csv text-3xl"></i>';
-            document.getElementById("statusTitle").innerText = "수동 게시글 로더";
-            document.getElementById("statusDesc").innerHTML = `자동 불러오기에 실패했습니다. <br><code class="text-blue-400 font-mono">${csvFileName}</code> 파일을 아래 구역에 드롭해 주세요.`;
+            document.getElementById("statusTitle").innerText = "수동 로더";
+            document.getElementById("statusDesc").innerHTML = `자동 불러오기에 실패했습니다. <br><code class="text-blue-400 font-mono">게시글 및 댓글 csv</code> 파일을 모두 드롭해 주세요.`;
             document.getElementById("dropZone").classList.remove("hidden");
         }
 
@@ -174,23 +193,65 @@
             const dropZone = document.getElementById("dropZone");
             const fileInput = document.getElementById("fileInput");
             dropZone.onclick = () => fileInput.click();
-            fileInput.onchange = (e) => processFile(e.target.files[0]);
+            fileInput.onchange = (e) => processFiles(e.target.files);
             dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add("border-blue-500", "bg-gray-800"); };
             dropZone.ondragleave = (e) => { e.preventDefault(); dropZone.classList.remove("border-blue-500", "bg-gray-800"); };
-            dropZone.ondrop = (e) => { e.preventDefault(); processFile(e.dataTransfer.files[0]); };
+            dropZone.ondrop = (e) => { e.preventDefault(); processFiles(e.dataTransfer.files); };
         }
 
-        function processFile(file) {
-            if (!file || !file.name.endsWith(".csv")) { alert("CSV 파일을 등록해 주세요."); return; }
-            Papa.parse(file, { header: true, skipEmptyLines: true, complete: function(results) { initializeData(results.data); } });
+        function processFiles(files) {
+            if (!files || files.length === 0) return;
+            
+            let postsFile, commentsFile;
+            
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].name.includes("post")) postsFile = files[i];
+                if (files[i].name.includes("comment")) commentsFile = files[i];
+            }
+
+            if (!postsFile) { alert("kawai_lifo.csv (게시글 파일)은 필수입니다!"); return; }
+
+            Papa.parse(postsFile, {
+                header: true, skipEmptyLines: true, complete: function(postsResults) {
+                    if (commentsFile) {
+                        Papa.parse(commentsFile, {
+                            header: true, skipEmptyLines: true, complete: function(commentsResults) {
+                                initializeData(postsResults.data, commentsResults.data);
+                            }
+                        });
+                    } else {
+                        initializeData(postsResults.data, []);
+                    }
+                }
+            });
         }
 
-        function parseAndInitialize(csvText) {
-            Papa.parse(csvText, { header: true, skipEmptyLines: true, complete: function(results) { initializeData(results.data); } });
+        function parseAndInitialize(postsCsvText, commentsCsvText) {
+            Papa.parse(postsCsvText, { 
+                header: true, skipEmptyLines: true, complete: function(postsResults) { 
+                    if(commentsCsvText) {
+                        Papa.parse(commentsCsvText, {
+                            header: true, skipEmptyLines: true, complete: function(commentsResults) {
+                                initializeData(postsResults.data, commentsResults.data);
+                            }
+                        });
+                    } else {
+                        initializeData(postsResults.data, []);
+                    }
+                } 
+            });
         }
 
-        function initializeData(parsedData) {
-            allPosts = parsedData.map((row, idx) => {
+        function initializeData(parsedPosts, parsedComments) {
+            const commentsByPost = {};
+            parsedComments.forEach(comment => {
+                const link = comment['Post Link'];
+                if(!link) return;
+                if(!commentsByPost[link]) commentsByPost[link] = [];
+                commentsByPost[link].push(comment);
+            });
+
+            allPosts = parsedPosts.map((row, idx) => {
                 let profImg = row['Profile Image'] ? row['Profile Image'].trim() : '';
                 if (profImg === "프로필 없음" || !profImg.startsWith('http')) { profImg = ''; }
 
@@ -199,6 +260,8 @@
 
                 let postImages = row['Images (Original)'] ? row['Images (Original)'].trim() : '';
                 if (postImages === "텍스트 없음" || postImages === "이미지 없음") { postImages = ''; }
+                
+                let link = row['Post Link'] === "링크 없음" ? "#" : (row['Post Link'] || '#');
 
                 return {
                     id: `local_post_${idx}`,
@@ -206,11 +269,12 @@
                     Profile_Image: profImg,
                     Date_Absolute: row['Date (Absolute)'] || '날짜 불명',
                     Date_Original: row['Date (Original)'] || '',
-                    Post_Link: row['Post Link'] === "링크 없음" ? "#" : (row['Post Link'] || '#'),
+                    Post_Link: link,
                     Likes: row['Likes'] || '0',
                     Comments: row['Comments'] || '0',
                     Text: contentText,
-                    Images: postImages
+                    Images: postImages,
+                    CommentsData: commentsByPost[link] || [] 
                 };
             });
 
@@ -278,10 +342,31 @@
 
             filteredPosts = allPosts.filter(post => {
                 let matchesSearch = true;
+                post._openComments = false; 
+
                 if (query) {
-                    if (type === "text") matchesSearch = post.Text.toLowerCase().includes(query);
-                    else if (type === "author") matchesSearch = post.Author.toLowerCase().includes(query);
-                    else matchesSearch = post.Text.toLowerCase().includes(query) || post.Author.toLowerCase().includes(query);
+                    const matchText = post.Text.toLowerCase().includes(query);
+                    const matchAuthor = post.Author.toLowerCase().includes(query);
+                    
+                    let matchComment = false;
+                    if (post.CommentsData && post.CommentsData.length > 0) {
+                        matchComment = post.CommentsData.some(c => 
+                            (c['Comment Text'] && c['Comment Text'].toLowerCase().includes(query)) || 
+                            (c['Comment Author'] && c['Comment Author'].toLowerCase().includes(query))
+                        );
+                    }
+
+                    if (type === "text") {
+                        matchesSearch = matchText;
+                    } else if (type === "author") {
+                        matchesSearch = matchAuthor;
+                    } else if (type === "comment") {
+                        matchesSearch = matchComment;
+                        if (matchComment) post._openComments = true; 
+                    } else { 
+                        matchesSearch = matchText || matchAuthor || matchComment;
+                        if (matchComment) post._openComments = true; 
+                    }
                 }
 
                 let matchesDate = true;
@@ -409,6 +494,46 @@
             }
         }
 
+        window.toggleComments = function(commentBoxId) {
+            const box = document.getElementById(commentBoxId);
+            if(box.classList.contains('hidden')) {
+                box.classList.remove('hidden');
+            } else {
+                box.classList.add('hidden');
+            }
+        }
+
+        // =====================================================================
+        // [🔥 완벽 해결] 이스케이프 + 링크변환 + 이모지복원을 충돌 없이 하나로 합친 함수
+        // =====================================================================
+        function formatTextSafe(text) {
+            if (!text) return "";
+            
+            // 1. HTML 태그 안전하게 변환 (escapeHtml)
+            let safeText = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+            
+            // 2. 이모지 데이터를 안전한 곳으로 임시 대피 (링크화가 건드리지 못하게 함)
+            const emojis = [];
+            safeText = safeText.replace(/\|\|EMOJI_START\|\|([^|]+)\|\|([^|]+)\|\|EMOJI_END\|\|/g, function(match, alt, url) {
+                emojis.push({ alt: alt, url: url });
+                return `__EMOJI_PLACEHOLDER_${emojis.length - 1}__`;
+            });
+
+            // 3. 남은 일반 텍스트의 순수 URL들만 골라서 하이퍼링크로 변환 (linkify)
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            safeText = safeText.replace(urlRegex, function(url) {
+                return `<a href="${url}" target="_blank" class="text-blue-500 hover:underline break-all">${url}</a>`;
+            });
+
+            // 4. 대피시켜뒀던 이모지들을 실제 이미지 태그로 복구 (parseCustomEmojis)
+            safeText = safeText.replace(/__EMOJI_PLACEHOLDER_(\d+)__/g, function(match, index) {
+                const emoji = emojis[index];
+                return `<img src="${emoji.url}" alt="${emoji.alt}" title="${emoji.alt}" class="inline-block w-6 h-6 align-middle mx-0.5 select-none object-contain">`;
+            });
+
+            return safeText;
+        }
+
         function renderFeedLayout(posts) {
             const container = document.getElementById("feedView");
             posts.forEach(post => {
@@ -427,7 +552,6 @@
                             </div>`;
                     });
 
-                    // prevBtn, nextBtn 에 고유 ID를 부여하고, 초기 로딩 시 첫 이미지이므로 prevBtn에 hidden 추가
                     imageMarkup = `
                         <div class="relative overflow-hidden group rounded-lg mt-3 border border-gray-100 bg-black/5">
                             <div id="carousel-${post.id}" class="flex transition-transform duration-300 ease-out">
@@ -441,9 +565,44 @@
                         </div>`;
                 }
 
+                let commentsMarkup = '';
+                if (post.CommentsData && post.CommentsData.length > 0) {
+                    let commentsListHtml = post.CommentsData.map(c => {
+                        const isReply = c['Type'] === '대댓글';
+                        let profImg = c['Profile Image'];
+                        if (!profImg || profImg === "프로필 없음") profImg = defaultProfile;
+                        
+                        // [🔥 교체] formatTextSafe 함수 하나로 통합 처리
+                        return `
+                            <div class="flex items-start gap-2 ${isReply ? 'ml-8 mt-2' : 'mt-3'}">
+                                <img src="${profImg}" onerror="this.onerror=null; this.src='${defaultProfile}';" class="w-7 h-7 rounded-full object-cover border border-gray-200 mt-1 flex-shrink-0" alt="댓글프사">
+                                <div class="flex-1 bg-gray-50/80 border border-gray-100 rounded-xl px-3 py-2 text-sm">
+                                    <p class="font-bold text-gray-800 text-[15px]">${c['Comment Author']}</p>
+                                    <div class="text-gray-700 mt-1 whitespace-pre-wrap break-words leading-relaxed text-[15px]">${formatTextSafe(c['Comment Text'])}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    const isCommentsOpenClass = post._openComments ? "" : "hidden";
+                    
+                    commentsMarkup = `
+                        <div class="mt-4 pt-3 border-t border-gray-100">
+                            <button onclick="toggleComments('commentsbox-${post.id}')" class="text-sm text-gray-500 hover:text-blue-500 font-medium flex items-center gap-1.5 transition outline-none">
+                                <i class="fa-regular fa-comment-dots"></i> 댓글 보기 (${post.CommentsData.length}개)
+                            </button>
+                            <div id="commentsbox-${post.id}" class="${isCommentsOpenClass} mt-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar border border-gray-100 rounded-lg p-2 bg-white shadow-inner">
+                                ${commentsListHtml}
+                            </div>
+                        </div>
+                    `;
+                }
+
                 const card = document.createElement("div");
                 card.className = "bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow transition";
                 card.dataset.carouselIndex = 0;
+                
+                // [🔥 교체] formatTextSafe 함수 하나로 통합 처리
                 card.innerHTML = `
                     <div class="flex items-start space-x-3">
                         <img src="${post.Profile_Image || defaultProfile}" onerror="this.onerror=null; this.src='${defaultProfile}';" class="w-10 h-10 rounded-full object-cover border border-gray-100 flex-shrink-0" alt="프로필">
@@ -453,12 +612,14 @@
                         </div>
                         <a href="${post.Post_Link}" target="_blank" class="text-gray-400 hover:text-blue-500 text-xs flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> 원본</a>
                     </div>
-                    <div class="mt-3 text-[15px] leading-relaxed text-gray-800 whitespace-pre-wrap break-words">${linkify(escapeHtml(post.Text))}</div>
+                    <div class="mt-3 text-[15px] leading-relaxed text-gray-800 whitespace-pre-wrap break-words">${formatTextSafe(post.Text)}</div>
                     ${imageMarkup}
                     <div class="flex items-center gap-6 mt-4 text-xs font-medium text-gray-500 border-t border-gray-50 pt-3">
                         <span class="flex items-center gap-1.5"><i class="fa-regular fa-heart text-sm"></i> ${post.Likes}</span>
                         <span class="flex items-center gap-1.5"><i class="fa-regular fa-comment text-sm"></i> ${post.Comments}</span>
-                    </div>`;
+                    </div>
+                    ${commentsMarkup}
+                `;
                 container.appendChild(card);
             });
         }
@@ -500,7 +661,6 @@
             });
         }
 
-        // 양쪽 버튼의 숨김/표시 상태를 현재 인덱스(idx)에 맞게 갱신하는 로직 추가
         window.moveCarousel = function(postId, direction, total) {
             const container = document.getElementById(`carousel-${postId}`);
             const card = container.closest('[data-carousel-index]');
@@ -567,10 +727,6 @@
         function closeLightbox() {
             document.getElementById("lightboxModal").classList.add("hidden");
             document.body.classList.remove("overflow-hidden");
-
-            // 만약 브라우저 기록에 모달 상태가 남아있다면, 
-            // 뒤로 가기를 실행하지 않고 현재 상태를 유지하며 닫기만 합니다.
-            // 이렇게 하면 페이지 이동 없이 모달만 정상적으로 닫힙니다.
         }
 
         function updateModalImage() {
@@ -587,10 +743,9 @@
         document.getElementById("modalPrevBtn").onclick = (e) => { e.stopPropagation(); if(currentModalIdx > 0) { currentModalIdx--; updateModalImage(); } };
         document.getElementById("modalNextBtn").onclick = (e) => { e.stopPropagation(); if(currentModalIdx < currentModalImages.length - 1) { currentModalIdx++; updateModalImage(); } };
 
-        // --- 스와이프(터치) 이벤트 추가 ---
         let touchStartX = 0;
         let touchEndX = 0;
-        const swipeThreshold = 50; // 스와이프로 인식할 최소 픽셀 거리
+        const swipeThreshold = 50;
 
         const lightboxModalElement = document.getElementById("lightboxModal");
 
@@ -621,7 +776,6 @@
                 }
             }
         }
-        // ----------------------------------
 
         async function downloadLightboxImage(event) {
             event.stopPropagation();
@@ -658,16 +812,6 @@
             observer.observe(document.getElementById("loadingTrigger"));
         }
 
-        function escapeHtml(text) {
-            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-        }
-
-        function linkify(text) {
-            const urlRegex = /(https?:\/\/[^\s]+)/g;
-            return text.replace(urlRegex, function(url) {
-                return `<a href="${url}" target="_blank" class="text-blue-500 hover:underline break-all">${url}</a>`;
-            });
-        }
         window.addEventListener('popstate', (event) => {
             const modal = document.getElementById("lightboxModal");
             if (!modal.classList.contains("hidden")) {
@@ -678,23 +822,15 @@
         
         let lastScrollTop = 0;
         const header = document.querySelector('header');
-        // 헤더의 높이를 미리 계산해둡니다 (헤더가 사라지는 범위)
         const headerHeight = header.offsetHeight;
-        let currentOffset = 0; // 현재 헤더의 위치 (0 ~ -headerHeight)
+        let currentOffset = 0;
 
         window.addEventListener('scroll', () => {
             let currentScroll = window.scrollY || document.documentElement.scrollTop;
-            
-            // 스크롤 방향 계산 (위로 이동하면 +값, 아래로 이동하면 -값)
             let delta = lastScrollTop - currentScroll;
-            
-            // 스크롤 이동량만큼 offset을 누적 (0보다 크면 0으로, -height보다 작으면 -height로 고정)
             currentOffset = Math.min(0, Math.max(-headerHeight, currentOffset + delta));
-            
-            // transform 속성을 실시간으로 적용
             header.style.transform = `translateY(${currentOffset}px)`;
-            header.style.transition = 'none'; // 부드러운 추종을 위해 애니메이션 제거
-            
+            header.style.transition = 'none'; 
             lastScrollTop = currentScroll;
         }, false);
     </script>
